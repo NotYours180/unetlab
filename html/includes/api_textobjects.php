@@ -6,28 +6,11 @@
  *
  * Pictures related functions for REST APIs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  */
 
 /**
@@ -40,8 +23,9 @@
 function apiAddLabTextObject($lab, $p) {
 	// Adding the object
 	$rc = $lab -> addTextObject($p);
-	if ($rc === 0) {
+	if ($rc -> status === 0) {
 		$output['code'] = 201;
+		$output['result'] = $rc;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][60023];
 	} else {

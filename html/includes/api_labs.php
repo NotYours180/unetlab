@@ -6,28 +6,11 @@
  *
  * Labs related functions for REST APIs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20151112
+ * @version 20160719
  */
 
 /*
@@ -313,6 +296,7 @@ function apiGetLab($lab) {
 		'id' => $lab -> getId(),
 		'name' => $lab -> getName(),
 		'version' => $lab -> getVersion(),
+		'scripttimeout' => $lab -> getScriptTimeout(),
 	);
 	return $output;
 }
@@ -515,7 +499,11 @@ function apiImportLabs($p) {
 						'data' => $result_pictures['img_content']
 					);
 					if (!empty($result_pictures['img_name'])) $p_picture['name'] =  $result_pictures['img_name'];
-					if (!empty($result_pictures['img_map'])) $p_picture['map'] =  preg_replace('/:20*([0-9]+)/', ':{{NODE$1}}', $result_pictures['img_map']);
+					if (!empty($result_pictures['img_map'])) {
+						$p_picture['map'] =  $result_pictures['img_map'];
+						$p_picture['map'] = preg_replace_callback('/:2*([0-9]+)/', function($m) { return ':{{NODE$'.((int) $m[1]).'}}'; }, $p_picture['map']);
+						//$p_picture['map'] = preg_replace_callback('/coords=\'([0-9]+),([0-9]+),/', function($m) { return 'coords=\''.((int) ($m[1] / 1.78)).','.((int) ($m[2] / 1.78).','); }, $p_picture['map']);
+					}
 					$rc = $lab -> addPicture($p_picture);
 					if ($rc !== 0) {
 						error_log('ERROR: skipping picture img_id = '.$result_pictures['img_id'].', error while creating picture.');
@@ -687,18 +675,10 @@ function apiImportLabs($p) {
 			error_log('INFO: lab "'.$result_labs['lab_name'].'" imported into "'.$lab_file.'".');
 		}
 
-
-
-
-
-
-
-		
-		
-		
 		$output['code'] = 200;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][80087];
+		unlink($tmp);
 		return $output;	
 	} else {
 		// File is not a Zip

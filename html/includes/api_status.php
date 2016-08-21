@@ -6,28 +6,11 @@
  *
  * Various system status commands for REST APIs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20151030
+ * @version 20160719
  */
 
 /*
@@ -94,7 +77,11 @@ function apiGetRunningWrappers() {
 	exec($cmd, $o_dynamips, $rc);
 	$cmd = 'pgrep -f -c -P 1 qemu_wrapper';
 	exec($cmd, $o_qemu, $rc);
-	return Array((int) current($o_iol), (int) current($o_dynamips), (int) current($o_qemu));
+	$cmd= 'docker -H=tcp://127.0.0.1:4243 ps -q | wc -l';
+	exec($cmd, $o_docker, $rc);
+	$cmd = 'pgrep -f -c -P 1 vpcs';
+	exec($cmd, $o_vpcs, $rc);
+	return Array((int) current($o_iol), (int) current($o_dynamips), (int) current($o_qemu), (int) current($o_docker), (int) current($o_vpcs));
 }
 
 /*

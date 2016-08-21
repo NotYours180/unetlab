@@ -6,28 +6,11 @@
  *
  * Various functions for UNetLab.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  */
 
 /**
@@ -519,6 +502,30 @@ function genUuid() {
 	);
 }
 
+
+/**
+ * Function to check if mac address format is valid
+ *
+ * @return   int (Bool)   
+ */
+
+function IsValidMac($mac)
+{
+  return (preg_match('/([a-fA-F0-9]{2}[:]?){6}/', $mac) == 1);
+}
+/** 
+  * Function to Increment mac address
+  *
+  * @return string  Next Mac
+  */
+
+function incMac($mac,$n)
+{
+        $nmac=substr("000000000000".dechex(hexdec(str_replace(":", '', $mac))+$n),-12);
+        $fmac=trim((preg_replace('/../','$0:',$nmac)),":");
+	return $fmac;
+}
+
 /**
  * Function to check if UNetLab is running as a VM.
  *
@@ -695,7 +702,7 @@ function listNodeImages($t, $p) {
  * @return  Array                       The list of node types
  */
 function listNodeTypes() {
-	return Array('iol', 'dynamips', 'docker', 'qemu');
+	return Array('iol', 'dynamips', 'docker', 'qemu' , 'vpcs');
 }
 
 /**

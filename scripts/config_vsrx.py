@@ -4,28 +4,11 @@
 #
 # Import/Export script for vsrx.
 #
-# LICENSE:
-#
-# This file is part of UNetLab (Unified Networking Lab).
-#
-# UNetLab is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# UNetLab is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
-#
 # @author Andrea Dainese <andrea.dainese@gmail.com>
 # @copyright 2014-2016 Andrea Dainese
-# @license http://www.gnu.org/licenses/gpl.html
+# @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
 # @link http://www.unetlab.com/
-# @version 20160125
+# @version 20160719
 
 import getopt, multiprocessing, os, pexpect, re, sys, time
 
@@ -130,7 +113,7 @@ def config_get(handler):
     # Go into CLI mode
     handler.sendline('cli')
     try:
-        handler.expect(['root>', 'root@.*>'], timeout = expctimeout)
+        handler.expect(['root>', 'root@.*>'], timeout = longtimeout)
     except:
         print('ERROR: error waiting for ["root>", "root@.*>"] prompt.')
         node_quit(handler)
@@ -139,7 +122,7 @@ def config_get(handler):
     # Disable paging
     handler.sendline('set cli screen-length 0')
     try:
-        handler.expect(['root>', 'root@.*>'], timeout = expctimeout)
+        handler.expect(['root>', 'root@.*>'], timeout = longtimeout)
     except:
         print('ERROR: error waiting for ["root>", "root@.*>"] prompt.')
         node_quit(handler)
@@ -148,7 +131,7 @@ def config_get(handler):
     # Getting the config
     handler.sendline('show configuration | display set')
     try:
-        handler.expect(['root>', 'root@.*>'], timeout = expctimeout)
+        handler.expect(['root>', 'root@.*>'], timeout = longtimeout)
     except:
         print('ERROR: error waiting for ["root>", "root@.*>"] prompt.')
         node_quit(handler)
@@ -173,10 +156,19 @@ def config_get(handler):
     return config
 
 def config_put(handler, config):
+    # mount drive
+    handler.sendline('mount -t cd9660 /dev/vtbd1 /mnt')
+    try:
+        handler.expect(['root>', 'root@.*%'], timeout = longtimeout)
+    except:
+        print('ERROR: error waiting for ["root>", "root@.*%"] prompt.')
+        node_quit(handler)
+        return False
+
     # Go into CLI mode
     handler.sendline('cli')
     try:
-        handler.expect(['root>', 'root@.*>'], timeout = expctimeout)
+        handler.expect(['root>', 'root@.*>'], timeout = longtimeout)
     except:
         print('ERROR: error waiting for ["root>", "root@.*>"] prompt.')
         node_quit(handler)
@@ -185,37 +177,18 @@ def config_put(handler, config):
     # Got to configure mode
     handler.sendline('configure')
     try:
-        handler.expect(['root#', 'root@.*#'], timeout = expctimeout)
+        handler.expect(['root#', 'root@.*#'], timeout = longtimeout)
     except:
         print('ERROR: error waiting for ["root#", "root@.*#"] prompt.')
         node_quit(handler)
         return False
-
     # Start the load mode
-    handler.sendline('load set terminal')
-    try:
-        handler.expect('to end input', timeout = expctimeout)
-    except:
-        print('ERROR: error waiting for "to end input" prompt.')
-        node_quit(handler)
-        return False
 
-    # Pushing the config
-    for line in config.splitlines():
-        handler.sendline(line)
-        try:
-            handler.expect('\r\n', timeout = expctimeout)
-        except:
-            print('ERROR: error waiting for EOL.')
-            node_quit(handler)
-            return False
-
-    # At the end of configuration be sure we are in non config mode (sending CTRl + D)
-    handler.sendline('\x04')
+    handler.sendline('load set /mnt/juniper.conf')
     try:
-        handler.expect(['root#', 'root@.*#'], timeout = expctimeout)
+        handler.expect('load complete', timeout = longtimeout)
     except:
-        print('ERROR: error waiting for ["root#", "root@.*#"] prompt.')
+        print('ERROR: error waiting for "load complete" prompt.')
         node_quit(handler)
         return False
 

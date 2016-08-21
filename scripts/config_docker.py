@@ -4,28 +4,11 @@
 #
 # Import/Export script for Docker.io.
 #
-# LICENSE:
-#
-# This file is part of UNetLab (Unified Networking Lab).
-#
-# UNetLab is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# UNetLab is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
-#
 # @author Andrea Dainese <andrea.dainese@gmail.com>
 # @copyright 2014-2016 Andrea Dainese
-# @license http://www.gnu.org/licenses/gpl.html
+# @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
 # @link http://www.unetlab.com/
-# @version 20160113
+# @version 20160719
 
 import getopt, multiprocessing, os, pexpect, re, subprocess, sys, time
 
@@ -37,7 +20,7 @@ expctimeout = 3     # Maximum time for each short expect
 longtimeout = 30    # Maximum time for each long expect
 timeout = 60        # Maximum run time (conntimeout is included)
 
-def config_put(docker_pid, config, firstboot):
+def config_put(docker_pid, config):
     for line in config.split(os.linesep):
         m = re.match(r'^ip ', line, re.M|re.I)
         if m:
@@ -76,17 +59,11 @@ def main(action, fiename, docker_id):
                 print('ERROR: cannot read config from file.')
                 sys.exit(1)
 
-            configured = '%s/.configured' %(os.path.dirname(filename))
-            if os.path.exists(configured):
-                firtboot = False
-            else:
-                firstboot = True
-
             p1 = subprocess.Popen(["/usr/bin/docker -H=tcp://127.0.0.1:4243 inspect --format '{{ .State.Pid }}' %s" %(docker_id)], stdout=subprocess.PIPE, shell=True)
             p1.wait()
             output, error = p1.communicate()
             docker_pid = output.decode("utf-8").rstrip()
-            rc = config_put(docker_pid, config, firstboot)
+            rc = config_put(docker_pid, config)
             if rc != True:
                 print('ERROR: failed to push config.')
                 sys.exit(1)
@@ -98,6 +75,7 @@ def main(action, fiename, docker_id):
                 os.remove(lock)
 
             # Mark as configured
+            configured = '%s/.configured' %(os.path.dirname(filename))
             if not os.path.exists(configured):
                 open(configured, 'a').close()
 

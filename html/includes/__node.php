@@ -6,28 +6,11 @@
  *
  * Class for UNetLab nodes.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160119
+ * @version 20160719
  * @property type $flags_eth CMD flags related to Ethernet interfaces. It's mandatory and automatically set.
  * @property type $flags_ser CMD flags related to Serial interfaces. It's mandatory and automatically set.
  * @property type $console protocol. It's optional.
@@ -67,6 +50,7 @@ class Node {
 	private $delay;
 	private $ethernet;
 	private $ethernets = Array();
+	private $firstmac;
 	private $host;
 	private $icon;
 	private $id;
@@ -287,6 +271,15 @@ class Node {
 			}
 		}
 
+                if ($p['type'] == 'vpcs') {
+                        if (isset($p['ethernet']) && (int) $p['ethernet'] <= 0) {
+                                // Ethernet interfaces is invalid, default to 1
+                                $p['ethernet'] = 1;
+                                error_log(date('M d H:i:s ').'WARNING: '.$GLOBALS['messages'][40012]);
+                        }
+                }
+
+
 		// If image is not set, choose the latest one available
 		if (!isset($p['image'])) {
 			if (empty(listNodeImages($p['type'], $p['template']))) {
@@ -341,6 +334,13 @@ class Node {
 			if (isset($p['ethernet'])) $this -> ethernet = (int) $p['ethernet'];
 			if (isset($p['uuid'])) $this -> uuid = $p['uuid'];
 			if (isset($p['ram'])) $this -> ram = (int) $p['ram'];
+			if ( $p['template']  == 'bigip' ) {
+				if (isset($p['firstmac']) && isValidMac($p['firstmac'])) {
+					$this -> firstmac = (string) $p['firstmac'];
+				} else {
+					$this -> firstmac =  '00:50:'.sprintf('%02x', $this -> tenant).':'.sprintf('%02x', $this -> id / 512).':'.sprintf('%02x', $this -> id % 512).':00';
+				}
+			}
 		}
 
 		// Building docker node
@@ -348,6 +348,13 @@ class Node {
 			if (isset($p['ram'])) $this -> ram = (int) $p['ram'];
 			if (isset($p['ethernet'])) $this -> ethernet = (int) $p['ethernet'];
 		}
+
+		// Building vpcs node
+                if ($p['type'] == 'vpcs') {
+                        if (isset($p['ethernet'])) $this -> ethernet = 1;
+			$this -> image = 'none' ;
+                }
+
 
 		// Set interface name
 		$this -> setEthernets();
@@ -619,6 +626,13 @@ class Node {
 				$this -> uuid = $p['uuid'];
 				$modified = True;
 			}
+			if (isset($p['firstmac']) && !isValidMac($p['firstmac'])) {
+				$this -> firstmac =  '00:50:'.sprintf('%02x', $this -> tenant).':'.sprintf('%02x', $this -> id / 512).':'.sprintf('%02x', $this -> id % 512).':00';
+				$modified = True;
+			} else if (isset($p['firstmac']) && isValidMac( $p['firstmac'])) {
+                                $this -> firstmac = (string) $p['firstmac'];
+                        } 
+			
 		}
 
 		if ($this -> type == 'docker') {
@@ -646,6 +660,21 @@ class Node {
 				$modified = True;
 			}
 		}
+
+                if ($this -> type == 'vpcs') {
+                        if (isset($p['ethernet']) && $p['ethernet'] === '') {
+                                // Ethernet interfaces is empty, unset the current one
+                                unset($p['ethernet']);
+                                $modified = True;
+                        } else if (isset($p['ethernet']) && (int) $p['ethernet'] <= 0) {
+                                // Ethernet interfaces is invalid, ignored
+                                error_log(date('M d H:i:s ').'WARNING: '.$GLOBALS['messages'][40012]);
+                        } else if (isset($p['ethernet']) && $this -> ethernet != (int) $p['ethernet']) {
+                                // New Ethernet value
+                                $this -> ethernet = (int) $p['ethernet'];
+                                $modified = True;
+                        }
+                }
 
 		if ($modified) {
 			// At least an attribute is changed
@@ -799,6 +828,14 @@ class Node {
 					$replacements[0] = '$1';
 					$disk_id = preg_replace($patterns, $replacements, $filename);
 					$flags .= ' -hd'.$disk_id.' '.$filename;
+				} else if (preg_match('/^virtide[a-z]+.qcow2$/', $filename)) {
+					// IDE
+					$patterns[0] = '/^virtide([a-z]+).qcow2$/';
+					$replacements[0] = '$1';
+					$disk_id = preg_replace($patterns, $replacements, $filename);
+					$disk_num = (int) ord(strtolower($disk_id)) - 97;
+					$flags .= ' -device virtio-blk-pci,scsi=off,drive=idedisk'.$disk_num.',id=hd'.$disk_id.',bootindex=1';
+					$flags .= ' -drive file='.$filename.',if=none,id=idedisk'.$disk_num.',format=qcow2,cache=none';
 				} else if (preg_match('/^virtio[a-z]+.qcow2$/', $filename)) {
 					// VirtIO
 					$patterns[0] = '/^virtio([a-z]+).qcow2$/';
@@ -835,6 +872,14 @@ class Node {
 			$flags .= ' '.$this -> getImage();		// Docker image
 		}
 
+		if ($this -> type == 'vpcs') {
+			error_log(date('M d H:i:s ').'INFO: entering into vpcs getcommand');
+			$bin .= '/opt/vpcsu/bin/vpcs';
+			$flags .= ' -i 1 -p '.$this -> port;
+			$flags .= ' '.$this -> flags_eth ;
+		}
+			
+
 		return Array($bin, $flags);
 	}
 
@@ -843,6 +888,7 @@ class Node {
 	 * 
 	 * @return	string                      Where the node take the startup-config
 	 */
+
 	public function getConfig() {
 		if (isset($this -> config)) {
 			return $this -> config;
@@ -939,7 +985,7 @@ class Node {
 	 * @return	int                         Total configured Ethernet interfaces/portgroups
 	 */
 	public function getEthernetCount() {
-		if (in_Array($this -> type, Array('iol', 'qemu', 'docker'))) {
+		if (in_Array($this -> type, Array('iol', 'qemu', 'docker','vpcs'))) {
 			return $this -> ethernet;
 		} else {
 			return 0;
@@ -992,6 +1038,16 @@ class Node {
 		return $this -> ethernets + $this -> serials;
 	}
 
+        /**
+         * Method to get Management Mac ( Needed for F5 )
+         * 
+         * @return      Array                       Node management mac
+         */
+        public function getFirstMac() {
+                return $this -> firstmac;
+		printf("firstmac") ;
+        }
+
 	/**
 	 * Method to get left offset.
 	 * 
@@ -1002,7 +1058,7 @@ class Node {
 			return $this -> left;
 		} else {
 			// By default return a random value between 240 and 560
-			return rand(240, 560);
+			return rand(100, 924);
 		}
 	}
 
@@ -1183,7 +1239,7 @@ class Node {
 			return $this -> top;
 		} else {
 			// By default return a random value between 180 and 420
-			return rand(180, 420);
+			return rand(100, 668);
 		}
 	}
 
@@ -1314,6 +1370,27 @@ class Node {
 					$this -> flags_eth .= ' -netdev tap,id=net'.$i.',ifname=vunl'.$this -> tenant.'_'.$this -> id.'_'.$i.',script=no';
 				}
 				break;
+                        case 'vpcs':
+                                for ($i = 0; $i < $this -> ethernet; $i++) {
+                                        if (isset($old_ethernets[$i])) {
+                                                // Previous interface found, copy from old one
+                                                $this -> ethernets[$i] = $old_ethernets[$i];
+                                        } else {
+                                                $n = 'eth'.$i;          // Interface name
+                                                try {
+                                                        $this -> ethernets[$i] = new Interfc(Array('name' => $n, 'type' => 'ethernet'), $i);
+                                                } catch (Exception $e) {
+                                                        error_log(date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][40020]);
+                                                        error_log(date('M d H:i:s ').(string) $e);
+                                                        return 40020;
+                                                }
+                                        }
+					
+                                        // Setting CMD flags (virtual device and map to TAP device)
+					$this -> flags_eth .= ' -e -d vunl'.$this -> tenant.'_'.$this -> id.'_'.$i; 
+                                }
+                                break;
+
 			case 'dynamips':
 				switch ($this -> getTemplate()) {
 					default:
@@ -1538,8 +1615,9 @@ class Node {
 									return 40020;
 								}
 							}
-							// Setting CMD flags (virtual device and map to TAP device)
-							$this -> flags_eth .= ' -device %NICDRIVER%,netdev=net'.$i.',mac=50:'.sprintf('%02x', $this -> tenant).':'.sprintf('%02x', $this -> id / 512).':'.sprintf('%02x', $this -> id % 512).':00:'.sprintf('%02x', $i);
+							// Setting CMD flags (virtual device and map to TAP device) SPECIAL COMPUTING
+							//$this -> flags_eth .= ' -device %NICDRIVER%,netdev=net'.$i.',mac=50:'.sprintf('%02x', $this -> tenant).':'.sprintf('%02x', $this -> id / 512).':'.sprintf('%02x', $this -> id % 512).':00:'.sprintf('%02x', $i);
+							$this -> flags_eth .= ' -device %NICDRIVER%,netdev=net'.$i.',mac='.incMac($this->firstmac,$i);
 							$this -> flags_eth .= ' -netdev tap,id=net'.$i.',ifname=vunl'.$this -> tenant.'_'.$this -> id.'_'.$i.',script=no';
 						}
 						break;
@@ -1922,9 +2000,9 @@ class Node {
 								$this -> ethernets[$i] = $old_ethernets[$i];
 							} else {
 								if ($i == 0) {
-									$n = 'fxp0';			// Interface name
+									$n = 'em0 / fxp0';			// Interface name
 								} else if ($i == 1) {
-									$n = 'Do not use';		// Interface name
+									$n = 'em1 / Internal use';		// Interface name
 								} else {
 									$n = 'em'.$i.' / ge-0/0/'.($i - 2);
 								}

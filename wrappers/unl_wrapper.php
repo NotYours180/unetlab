@@ -7,28 +7,11 @@
  *
  * CLI handler for UNetLab
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Foobar is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Foobar. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  */
 
 require_once('/opt/unetlab/html/includes/init.php');
@@ -128,6 +111,10 @@ switch ($action) {
 		if (isset($node_id)) {
 			// Node ID is set, export a single node
 			$rc = export($node_id, $lab -> getNodes()[$node_id], $lab);
+			if ($rc == 80061 || $rc == 80084 ) {
+				error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][19]);
+				exit(19);
+			}
 			if ($rc !== 0) {
 				// Failed to export config
 				error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][16]);
@@ -189,6 +176,10 @@ switch ($action) {
 		exec($cmd, $o, $rc);
 		$cmd = 'pkill -TERM qemu_wrapper > /dev/null 2>&1';
 		exec($cmd, $o, $rc);
+		$cmd = 'pkill -TERM vpcs > /dev/null 2>&1';
+		exec($cmd, $o, $rc);
+		$cmd = 'docker -H=tcp://127.0.0.1:4243 stop $(docker -H=tcp://127.0.0.1:4243 ps -q)';
+		exec($cmd, $o, $rc);
 		$cmd = 'brctl show | grep vnet | sed \'s/^\(vnet[0-9]\+_[0-9]\+\).*/\1/g\' | while read line; do ifconfig $line down; brctl delbr $line; done';
 		exec($cmd, $o, $rc);
 		$cmd = 'ovs-vsctl list-br | while read line; do ovs-vsctl del-br $line; done';
@@ -223,7 +214,8 @@ switch ($action) {
 					// Create attached networks only
 					$p = Array(
 						'name' => 'vnet'.$lab -> getTenant().'_'.$interface -> getNetworkId(),
-						'type' => $lab -> getNetworks()[$interface -> getNetworkId()] -> getNType()
+						'type' => $lab -> getNetworks()[$interface -> getNetworkId()] -> getNType(),
+						'count' => $lab -> getNetworks()[$interface -> getNetworkId()] -> getCount()
 					);
 					$rc = addNetwork($p);
 					if ($rc !== 0) {
@@ -236,7 +228,7 @@ switch ($action) {
 			}
 
 			// Starting the node
-			$rc = start($lab -> getNodes()[$node_id], $node_id, $tenant, $lab -> getNetworks());
+			$rc = start($lab -> getNodes()[$node_id], $node_id, $tenant, $lab -> getNetworks(), $lab -> getScriptTimeout());
 			if ($rc !== 0) {
 				// Failed to start the node
 				error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][$rc]);
@@ -265,7 +257,7 @@ switch ($action) {
 			foreach ($lab -> getNodes() as $node_id => $node) {
 				if ($node -> getNType() != 'iol') {
 					// IOL nodes drop privileges, so need to be postponed
-					$rc = start($node, $node_id, $tenant, $lab -> getNetworks());
+					$rc = start($node, $node_id, $tenant, $lab -> getNetworks(), $lab -> getScriptTimeout());
 					if ($rc !== 0) {
 						// Failed to start the node
 						error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][$rc]);
@@ -279,7 +271,7 @@ switch ($action) {
 			foreach ($lab -> getNodes() as $node_id => $node) {
 				if ($node -> getNType() == 'iol') {
 					// IOL nodes drop privileges, so need to be postponed
-					$rc = start($node, $node_id, $tenant, $lab -> getNetworks());
+					$rc = start($node, $node_id, $tenant, $lab -> getNetworks(), $lab -> getScriptTimeout());
 					if ($rc !== 0) {
 						// Failed to start the node
 						error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][$rc]);
@@ -350,6 +342,16 @@ switch ($action) {
 		if (isset($node_id)) {
 			// Node ID is set, stop and wipe the node
 			stop($lab -> getNodes()[$node_id]);
+			// Delete Docker image
+			if ($lab -> getNodes()[$node_id] -> getNType() == 'docker') {
+				$cmd = '/usr/bin/docker -H=tcp://127.0.0.1:4243 rm '.$lab -> getNodes()[$node_id] -> getUuid();
+				exec($cmd, $o, $rc);
+				if ($rc !== 0) {
+					error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][13]);
+					error_log(date('M d H:i:s ').date('M d H:i:s ').implode("\n", $o));
+					exit(13);
+				}
+			}
 			$cmd = 'rm -rf "/opt/unetlab/tmp/'.$tenant.'/'.$lab -> getId().'/'.$node_id.'/"';
 			exec($cmd, $o, $rc);
 			if ($rc !== 0) {
@@ -361,14 +363,24 @@ switch ($action) {
 			// Node ID is not set, stop and wipe all nodes
 			foreach ($lab -> getNodes() as $node_id => $node) {
 				stop($node);
-			}
-			$cmd = 'rm -rf "/opt/unetlab/tmp/'.$tenant.'/'.$lab -> getId().'/"';
-			exec($cmd, $o, $rc);
-			if ($rc !== 0) {
-				error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][13]);
-				error_log(date('M d H:i:s ').date('M d H:i:s ').implode("\n", $o));
-				exit(13);
-			}
+				// Delete Docker image
+				if ($lab -> getNodes()[$node_id] -> getNType() == 'docker') {
+					$cmd = '/usr/bin/docker -H=tcp://127.0.0.1:4243 rm '.$lab -> getNodes()[$node_id] -> getUuid();
+					exec($cmd, $o, $rc);
+					if ($rc !== 0) {
+						error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][13]);
+						error_log(date('M d H:i:s ').date('M d H:i:s ').implode("\n", $o));
+						exit(13);
+					}
+				}
+				}
+				$cmd = 'rm -rf "/opt/unetlab/tmp/'.$tenant.'/'.$lab -> getId().'/"';
+				exec($cmd, $o, $rc);
+				if ($rc !== 0) {
+					error_log(date('M d H:i:s ').date('M d H:i:s ').'ERROR: '.$GLOBALS['messages'][13]);
+					error_log(date('M d H:i:s ').date('M d H:i:s ').implode("\n", $o));
+					exit(13);
+				}
 		}
 		break;
 }

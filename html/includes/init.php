@@ -17,28 +17,11 @@
  * define('THEME', 'default');
  * define('TIMEZONE', 'Europe/Rome');
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160126
+ * @version 20160719
  */
 
 // Include custom configuration
@@ -60,6 +43,7 @@ if (!isset($node_config)) {
 		'c1710'			=>	'embedded',
 		'c3725'			=>	'embedded',
 		'c7200'			=>	'embedded',
+		'vpcs'			=>	'embedded',
 		'asa'			=>	'config_asa.py',
 		'asav'			=>	'config_asav.py',
 		'csr1000v'		=>	'config_csr1000v.py',
@@ -69,8 +53,11 @@ if (!isset($node_config)) {
 		'viosl2'		=>	'config_viosl2.py',
 		'vios'			=>	'config_vios.py',
 		'vsrx'			=>	'config_vsrx.py',
+		'vsrxng'		=>	'config_vsrxng.py',
 		'vmx'			=>	'config_vmx.py',
-		'xrv'			=>	'config_xrv.py'
+		'xrv'			=>	'config_xrv.py',
+		//'xrv9k'		=>	'config_xrv9k.py',
+		'pfsense'		=>	'config_pfsense.py'
 	);
 }
 
@@ -95,16 +82,19 @@ if (!isset($node_templates)) {
 		'c7200'			=>	'Cisco IOS 7206VXR (Dynamips)',
 		'iol'			=>	'Cisco IOL',
 		'titanium'		=>	'Cisco NX-OSv (Titanium)',
-		'sourcefire'		=>	'Cisco Sourcefire',
+		'firepower'		=>	'Cisco FirePower',
 		'ucspe'			=>	'Cisco UCS-PE',
 		'vios'			=>	'Cisco vIOS',
 		'viosl2'		=>	'Cisco vIOS L2',
 		'vnam'			=>	'Cisco vNAM',
 		'vwlc'			=>	'Cisco vWLC',
 		'vwaas'			=>	'Cisco vWAAS',
-		'coeus'			=>	'Cisco Web Security Appliance',
+		'phoebe'		=>	'Cisco Email Security Appliance (ESA)',
+		'coeus'			=>	'Cisco Web Security Appliance (WSA)',
 		'xrv'			=>	'Cisco XRv',
+		'xrv9k'	                =>      'Cisco XRv 9000',
 		'nsvpx'			=>	'Citrix Netscaler',
+		'sonicwall'            	=>      'Dell SonicWall',
 		'cumulus'		=>	'Cumulus VX',
 		'extremexos'		=>	'ExtremeXOS',
 		'bigip'			=>	'F5 BIG-IP LTM VE',
@@ -119,16 +109,18 @@ if (!isset($node_templates)) {
 		'mikrotik'		=>	'MikroTik RouterOS',
 		'ostinato'		=>	'Ostinato',
 		'paloalto'		=>	'Palo Alto VM-100 Firewall',
+		'pfsense'		=>	'pfSense Firewall',
 		//'riverbed'		=>	'Riverbed',
 		'sterra'		=>	'S-Terra',
 		'vyos'			=>	'VyOS',
 		//'esxi'		=>	'VMware ESXi',
-		'win'			=>	'Windows'
+		'win'			=>	'Windows',
+		'vpcs'			=>	'Virtual PC (VPCS)'
 	);
 }
 
 // Define parameters
-define('VERSION', 'development');
+define('VERSION', '1.0.0-11-git');
 define('BASE_DIR', '/opt/unetlab');
 define('BASE_LAB', BASE_DIR.'/labs');
 define('BASE_TMP', BASE_DIR.'/tmp');

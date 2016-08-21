@@ -5,28 +5,11 @@
  *
  * English messages for UNetLab.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160113
+ * @version 20160719
  */
  
 var MESSAGES = [];
@@ -86,9 +69,9 @@ MESSAGES[52] = 'Path';
 MESSAGES[53] = 'not lgged in';
 MESSAGES[54] = 'never';
 MESSAGES[55] = 'Close';
-MESSAGES[56] = 'Add a object';
+MESSAGES[56] = 'Add an object';
 MESSAGES[57] = 'Refresh topology';
-MESSAGES[58] = 'startup-configs';
+MESSAGES[58] = 'Startup-configs';
 MESSAGES[59] = 'Pictures';
 MESSAGES[60] = 'Close lab';
 MESSAGES[61] = 'Networks';
@@ -130,7 +113,7 @@ MESSAGES[97] = 'Attached nodes';
 MESSAGES[99] = 'Actions';
 MESSAGES[100] = 'Click to place the object';
 MESSAGES[101] = 'Cannot place the object here';
-MESSAGES[102] = 'Nohting selected';
+MESSAGES[102] = 'Nothing selected';
 MESSAGES[103] = 'Name/Prefix';
 MESSAGES[104] = 'Delay';
 MESSAGES[105] = 'CPU';
@@ -143,7 +126,7 @@ MESSAGES[111] = 'Template';
 MESSAGES[112] = 'Console';
 MESSAGES[113] = 'Number of nodes to add';
 MESSAGES[114] = 'Number of networks to add';
-MESSAGES[115] = 'Link node';
+MESSAGES[115] = 'Connect node';
 MESSAGES[116] = 'Configure interfaces';
 MESSAGES[117] = 'Disconnected';
 MESSAGES[118] = 'Configured nodes';
@@ -173,3 +156,23 @@ MESSAGES[141] = 'Delete all startup-cfg';
 MESSAGES[142] = 'Deleted all startup-cfg';
 MESSAGES[143] = 'after wipe, node will boot from to export-cfg';
 MESSAGES[144] = 'after wipe, node will boot with default/no config';
+MESSAGES[145] = 'Custom Shape';
+MESSAGES[146] = 'Text';
+MESSAGES[147] = 'Send To Back';
+MESSAGES[148] = 'Send To Front';
+MESSAGES[149] = 'Duplicate';
+MESSAGES[150] = 'Configured objects';
+MESSAGES[151] = 'Free Select';
+MESSAGES[152] = 'Delete All';
+MESSAGES[153] = 'Start All';
+MESSAGES[154] = 'Stop All';
+MESSAGES[155] = 'Wipe All';
+MESSAGES[156] = 'Duplicated objects found.';
+MESSAGES[157] = 'Delete All';
+MESSAGES[158] = 'Config Script Timeout';
+MESSAGES[159] = 'Delete nodes startup-cfg';
+MESSAGES[160] = 'Deleted selected nodes startup-cfg';
+MESSAGES[161] = 'running Docker nodes';
+MESSAGES[162] = 'running VPCS nodes';
+MESSAGES[163] = 'Boot Image';
+MESSAGES[164] = 'Icon';

@@ -6,28 +6,11 @@
  *
  * Class for UNetLab labs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  * @property type $author Author name of the lab. It's optional.
  * @property type $body Long text for lab usage. It's optional.
  * @property type $description Description of the lab. It's optional
@@ -56,6 +39,7 @@ class Lab {
 	private $pictures = array();
 	private $tenant;
 	private $version;
+	private $scripttimeout;
 
 	/**
 	 * Constructor which load an existent lab or create an empty one.
@@ -88,6 +72,7 @@ class Lab {
 			$this -> name = substr(basename($f), 0, -4);
 			$this -> id = genUuid();
 			$modified = True;
+			$this -> scripttimeout = 600;
 		} else {
 			// Load the existent lab
 			$this -> filename = basename($f);
@@ -219,6 +204,14 @@ class Lab {
 				} else {
 					$config_data = base64_decode($result);
 				}
+				// F5 needs a first mac address
+                                if ( $n['template']  == "bigip" ) {
+                                        if (isset($node -> attributes() -> firstmac)) {
+                                                $n['firstmac'] = (string) $node -> attributes() -> firstmac;
+                                        } else {
+                                                $n['firstmac'] = (string) '00:'.sprintf('%02x', $this -> tenant).':'.sprintf('%02x', $this -> id / 512).':'.sprintf('%02x', $this -> id % 512).':00:10';
+                                        }
+                                }
 
 				try {
 					$this -> nodes[$n['id']] = new Node($n, $n['id'], $this -> tenant, $this -> id);
@@ -229,6 +222,7 @@ class Lab {
 					continue;
 				}
 
+	
 				// Slot must be loaded before interfaces
 				foreach ($node -> slot as $slot) {
 					// Loading configured slots for this node
@@ -276,6 +270,14 @@ class Lab {
 				}
 			}
 
+			// lab script timeout
+			$result = (string) array_pop($xml -> xpath('//lab/@scripttimeout'));
+                        if (strlen($result) !== 0 && (int) $result >= 300) {
+                                $this -> scripttimeout = $result;
+                        } else if (strlen($result) !== 0) {
+                                error_log(date('M d H:i:s ').'WARNING: '.$f.' '.$GLOBALS['messages'][20045]);
+				$this -> scripttimeout = 300;
+                        }
 
 			// Lab Pictures
 			foreach ($xml -> xpath('//lab/objects/pictures/picture') as $picture) {
@@ -384,7 +386,9 @@ class Lab {
 	 */
 	public function addTextObject($p) {
 		$p['id'] = 1;
-
+		$object = new stdClass();
+		$object->id = -1;
+		$object->status = 0;
 		// Finding a free object ID
 		while (True) {
 			if (!isset($this -> textobjects[$p['id']])) {
@@ -397,12 +401,16 @@ class Lab {
 		// Adding the object
 		try {
 			$this -> textobjects[$p['id']] = new TextObject($p, $p['id']);
-			return $this -> save();
+			$this -> save();
+			$object->id = $p['id'];
+			$object->status = 0;
+			return $object;
 		} catch (Exception $e) {
 			// Failed to create the picture
 			error_log(date('M d H:i:s ').'ERROR: '.$this -> path .'/'.$this -> filename.'?pic='.$p['id'].' '.$GLOBALS['messages'][20042]);
 			error_log(date('M d H:i:s ').(string) $e);
-			return 20042;
+			$object->status = 20042;
+			return $object;
 		}
 	}
 
@@ -581,6 +589,10 @@ class Lab {
 		} else if (isset($p['version'])) {
 			$this -> version = (int) $p['version'];
 			$modified = True;
+		}
+		if (isset($p['scripttimeout'])) {
+                        $this -> scripttimeout = (int) $p['scripttimeout'];
+                        $modified = True;
 		}
 
 		if ($modified) {
@@ -859,6 +871,19 @@ class Lab {
 			return 0;
 		}
 	}
+	        /**
+         * Method to get lab scripttimeout
+         *
+         * @return  int                      Lab version or False if not set
+         */
+        public function getScriptTimeout() {
+                if (isset($this -> scripttimeout)) {
+                        return (int) $this -> scripttimeout;
+                } else {
+                        // By default return 0
+                        return 0;
+                }
+        }
 
 	/**
 	 * Method to connect a node to a network or to a remote node.
@@ -976,6 +1001,7 @@ class Lab {
 		$xml -> addAttribute('id', $this -> id);
 
 		if (isset($this -> version)) $xml -> addAttribute('version', $this -> version);
+		if (isset($this -> scripttimeout)) $xml -> addAttribute('scripttimeout', $this -> scripttimeout);
 		if (isset($this -> author)) $xml -> addAttribute('author', $this -> author);
 		if (isset($this -> description)) $xml -> addChild('description', $this -> description);
 		if (isset($this -> body)) $xml -> addChild('body', $this -> body);
@@ -1013,6 +1039,9 @@ class Lab {
 								$s -> addAttribute('module', $module);
 							}
 							break;
+						case 'vpcs':
+							$d -> addAttribute('ethernet', $node -> getEthernetCount());
+							break;
 						case 'docker':
 							// Docker specific parameters
 							$d -> addAttribute('ethernet', $node -> getEthernetCount());
@@ -1025,6 +1054,7 @@ class Lab {
 							$d -> addAttribute('ram', $node -> getRam());
 							$d -> addAttribute('ethernet', $node -> getEthernetCount());
 							$d -> addAttribute('uuid', $node -> getUuid());
+							if ( $node -> getTemplate() == "bigip" ) $d -> addAttribute('firstmac', $node -> getFirstMac());
 							break;
 					}
 

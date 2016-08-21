@@ -6,28 +6,11 @@
  *
  * REST API router for UNetLab.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  */
 
 require_once('/opt/unetlab/html/includes/init.php');
@@ -202,7 +185,9 @@ $app -> get('/api/status', function() use ($app, $db) {
 	list(
 		$output['data']['iol'],
 		$output['data']['dynamips'],
-		$output['data']['qemu']
+		$output['data']['qemu'],
+		$output['data']['docker'],
+		$output['data']['vpcs']
 	) = apiGetRunningWrappers();
 
 	$app -> response -> setStatus($output['code']);
@@ -970,7 +955,7 @@ $app -> delete('/api/labs/(:path+)', function($path = array()) use ($app, $db) {
 	if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/networks\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabNetwork($lab, $id);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/nodes\/[0-9]+$/', $s)) {
-		$output = apiDeleteLabNode($lab, $id);
+		$output = apiDeleteLabNode($lab, $id,$tenant);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/textobjects\/[0-9]+$/', $s)) {
 		$output = apiDeleteLabTextObject($lab, $id);
 	} else if (preg_match('/^\/[A-Za-z0-9_+\/\\s-]+\.unl\/pictures\/[0-9]+$/', $s)) {
@@ -998,7 +983,7 @@ $app -> get('/api/users/(:uuser)', function($uuser = False) use ($app, $db) {
 		$app -> response -> setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], Array('admin'))) {
+	if (!in_array($user['role'], Array('admin')) && false) {
 		$app -> response -> setStatus($GLOBALS['forbidden']['code']);
 		$app -> response -> setBody(json_encode($GLOBALS['forbidden']));
 		return;
@@ -1021,7 +1006,7 @@ $app -> put('/api/users/(:uuser)', function($uuser = False) use ($app, $db) {
 		$app -> response -> setBody(json_encode($output));
 		return;
 	}
-	if (!in_array($user['role'], Array('admin'))) {
+	if (!in_array($user['role'], Array('admin', 'editor'))) {
 		$app -> response -> setStatus($GLOBALS['forbidden']['code']);
 		$app -> response -> setBody(json_encode($GLOBALS['forbidden']));
 		return;
@@ -1029,7 +1014,13 @@ $app -> put('/api/users/(:uuser)', function($uuser = False) use ($app, $db) {
 
 	$event = json_decode($app -> request() -> getBody());
 	$p = json_decode(json_encode($event), True);	// Reading options from POST/PUT
-
+	
+	if ($user['role'] == 'editor') {
+		unset($p['role']);
+		unset($p['expiration']);
+		unset($p['pod']);
+		unset($p['pexpiration']);
+	}
 	$output = apiEditUUser($db, $uuser, $p);
 	$app -> response -> setStatus($output['code']);
 	$app -> response -> setBody(json_encode($output));
@@ -1162,6 +1153,44 @@ $app -> get('/api/update', function() use ($app, $db) {
 	$app -> response -> setBody(json_encode($output));
 });
 
+
+/***************************************************************************
+ * LOGS
+ **************************************************************************/
+$app -> get('/api/logs/(:file)/(:lines)/(:search)', function($file = False, $lines = 10, $search="") use ($app, $db) {
+	list($user, $tenant, $output) = apiAuthorization($db, $app -> getCookie('unetlab_session'));
+	if ($user === False) {
+		$app -> response -> setStatus($output['code']);
+		$app -> response -> setBody(json_encode($output));
+		return;
+	}
+	
+
+	$f = @file_get_contents("/opt/unetlab/data/Logs/" . $file);
+	if ($f)
+	{
+		$arr = explode("\n", $f);
+		if (!is_array($arr))
+			$arr = array();
+		$arr = array_reverse($arr);
+		
+		if ($search)
+		{
+			foreach($arr as $k=>$v )
+			{
+				if (strstr($v, $search) === false)
+					unset($arr[$k]);
+			}
+		}
+		
+		$arr = array_slice($arr, 0 , $lines);
+	}
+	else
+		$arr = array();
+	
+	$app -> response -> setStatus(200);
+	$app -> response -> setBody(json_encode($arr));
+});
 /***************************************************************************
  * Run
  **************************************************************************/

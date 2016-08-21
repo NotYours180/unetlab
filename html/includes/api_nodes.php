@@ -6,28 +6,11 @@
  *
  * Nodes related functions for REST APIs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160113
+ * @version 20160719
  */
 
 /**
@@ -63,11 +46,18 @@ function apiAddLabNode($lab, $p, $o) {
  * @param   int     $id                 Node ID
  * @return  Array                       Return code (JSend data)
  */
-function apiDeleteLabNode($lab, $id) {
+function apiDeleteLabNode($lab, $id, $tenant) {
 	// Delete all tmp files for the node
 	$cmd = 'sudo /opt/unetlab/wrappers/unl_wrapper -a delete -T 0 -D '.$id.' -F "'.$lab -> getPath().'/'.$lab -> getFilename().'"';  // Tenant not required for delete operation
 	exec($cmd, $o, $rc);
-
+	// Stop the node
+	foreach( scandir("/opt/unetlab/tmp/") as $value ) {	
+		if ( is_dir("/opt/unetlab/tmp/".$value) and intval($value) >= 0 ) {
+			$output=apiStopLabNode($lab, $id, intval($value)); 
+			file_put_contents("/tmp/ade",$value,FILE_APPEND);
+			if ($output['status'] == 400 ) return $output; 	
+		}
+	}
 	// Deleting the node
 	$rc = $lab -> deleteNode($id);
 	if ($rc === 0) {
@@ -239,11 +229,17 @@ function apiGetLabNode($lab, $id) {
 			$output['data']['ethernet'] = $node -> getEthernetCount();
 			$output['data']['ram'] = $node -> getRam();
 			$output['data']['uuid'] = $node -> getUuid();
+			if ( $node -> getTemplate() == "bigip" )  {
+				$output['data']['firstmac'] = $node -> getFirstMac();
+			}
 		}
 
 		if ($node -> getNType() == 'docker') {
 			$output['data']['ethernet'] = $node -> getEthernetCount();
 			$output['data']['ram'] = $node -> getRam();
+		}
+		if ($node -> getNType() == 'vpcs') {
+                        $output['data']['ethernet'] = $node -> getEthernetCount();
 		}
 	} else {
 		// Node not found
@@ -308,12 +304,18 @@ function apiGetLabNodes($lab) {
 				$output['data'][$node_id]['ethernet'] = $node -> getEthernetCount();
 				$output['data'][$node_id]['ram'] = $node -> getRam();
 				$output['data'][$node_id]['uuid'] = $node -> getUuid();
+				if ( $node -> getTemplate() == "bigip" ) {
+					$output['data'][$node_id]['firstmac'] = $node -> getFirstMac();
+				}
 			}
 
 			if ($node -> getNType() == 'docker') {
 				$output['data'][$node_id]['ethernet'] = $node -> getEthernetCount();
 				$output['data'][$node_id]['ram'] = $node -> getRam();
 			}
+			if ($node -> getNType() == 'vpcs') {
+                                $output['data'][$node_id]['ethernet'] = $node -> getEthernetCount();
+                        }
 		}
 	}
 	return $output;
@@ -337,6 +339,7 @@ function apiGetLabNodeInterfaces($lab, $id) {
 		$output['message'] = $GLOBALS['messages'][60025];
 		$output['data'] = Array();
 		// Addint node type to properly sort IOL interfaces
+		$output['data']['id'] = (int)$id;
 		$output['data']['sort'] = $lab -> getNodes()[$id] -> getNType();
 
 		// Getting interfaces
@@ -349,10 +352,13 @@ function apiGetLabNodeInterfaces($lab, $id) {
 		}
 		$serials = Array();
 		foreach ($lab -> getNodes()[$id] -> getSerials() as $interface_id => $interface) {
+			$remoteId = $interface -> getRemoteId();
+			$remoteIf = $interface -> getRemoteIf();
 			$serials[$interface_id] = Array(
 				'name' => $interface -> getName(),
-				'remote_id' => $interface -> getRemoteId(),
-				'remote_if' => $interface -> getRemoteIf()
+				'remote_id' =>$remoteId,
+				'remote_if' => $remoteIf,
+				'remote_if_name' => $remoteId?$lab -> getNodes()[$remoteId]-> getSerials()[$remoteIf]-> getName():'',
 			);
 		}
 
@@ -400,27 +406,28 @@ function apiGetLabNodeTemplate($p) {
 	$output['data']['type'] = $p['type'];
 
 	// Image
+	if ($p['type'] != 'vpcs') {	
 	$node_images = listNodeImages($p['type'], $p['template']);
-	if (empty($node_images)) {
-		$output['data']['options']['image'] = Array(
-			'name' => $GLOBALS['messages'][70002],
-			'type' => 'list',
-			'value' => '',
-			'list' => Array()
-		);
-	} else {
-		$output['data']['options']['image'] = Array(
-			'name' => $GLOBALS['messages'][70002],
-			'type' => 'list',
-			'list' => $node_images
-		);
-		if (isset($p['image'])) {
-			$output['data']['options']['image']['value'] =  $p['image'];
+		if (empty($node_images)) {
+			$output['data']['options']['image'] = Array(
+				'name' => $GLOBALS['messages'][70002],
+				'type' => 'list',
+				'value' => '',
+				'list' => Array()
+			);
 		} else {
-			$output['data']['options']['image']['value'] =  end($node_images);
+			$output['data']['options']['image'] = Array(
+				'name' => $GLOBALS['messages'][70002],
+				'type' => 'list',
+				'list' => $node_images
+			);
+			if (isset($p['image'])) {
+				$output['data']['options']['image']['value'] =  $p['image'];
+			} else {
+				$output['data']['options']['image']['value'] =  end($node_images);
+			}
 		}
 	}
-
 	// Node Name/Prefix
 	$output['data']['options']['name'] = Array(
 		'name' => $GLOBALS['messages'][70000],
@@ -440,7 +447,7 @@ function apiGetLabNodeTemplate($p) {
 	if ($p['type'] == 'qemu') $output['data']['options']['uuid'] = Array(
 		'name' => $GLOBALS['messages'][70008],
 		'type' => 'input',
-		'value' => genUuid()
+		'value' => ''
 	);
 
 	// CPU
@@ -499,6 +506,13 @@ function apiGetLabNodeTemplate($p) {
 		'value' => $p['ethernet']
 	);
 
+	// First Mac
+        if ($p['template'] == "bigip" ) $output['data']['options']['firstmac'] =  Array(
+                'name' => $GLOBALS['messages'][70021],
+                'type' => 'input',
+                'value' => ( isset($p['firstmac'])?$p['firstmac']:"") 
+        );
+
 	// Serial
 	if ($p['type'] == 'iol') $output['data']['options']['serial'] = Array(
 		'name' => $GLOBALS['messages'][70017],
@@ -507,7 +521,7 @@ function apiGetLabNodeTemplate($p) {
 	);
 
 	// Startup configs
-	if (in_array($p['type'], Array('dynamips', 'iol', 'qemu', 'docker'))) {
+	if (in_array($p['type'], Array('dynamips', 'iol', 'qemu', 'docker','vpcs'))) {
 		$output['data']['options']['config'] = Array(
 			'name' => $GLOBALS['messages'][70013],
 			'type' => 'list',
@@ -549,7 +563,6 @@ function apiGetLabNodeTemplate($p) {
 		if (isset($p['qemu_nic'])) $output['data']['qemu']['nic'] = $p['qemu_nic'];
 		if (isset($p['qemu_options'])) $output['data']['qemu']['options'] = $p['qemu_options'];
 	}
-
 	return $output;
 }
 

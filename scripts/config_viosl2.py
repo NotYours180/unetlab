@@ -4,28 +4,11 @@
 #
 # Import/Export script for vIOS.
 #
-# LICENSE:
-#
-# This file is part of UNetLab (Unified Networking Lab).
-#
-# UNetLab is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# UNetLab is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
-#
 # @author Andrea Dainese <andrea.dainese@gmail.com>
 # @copyright 2014-2016 Andrea Dainese
-# @license http://www.gnu.org/licenses/gpl.html
+# @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
 # @link http://www.unetlab.com/
-# @version 20160114
+# @version 20160719
 
 import getopt, multiprocessing, os, pexpect, re, sys, time
 
@@ -195,52 +178,13 @@ def config_get(handler):
 
     return config
 
-def config_put(handler, config):
-    # Got to configure mode
-    handler.sendline('configure terminal')
-    try:
-        handler.expect('\(config', timeout = expctimeout)
-    except:
-        print('ERROR: error waiting for "(config prompt.')
-        node_quit(handler)
-        return False
-
-    # Pushing the config
-    for line in config.splitlines():
-        handler.sendline(line)
+def config_put(handler):
+    while True:
         try:
-            handler.expect('\r\n', timeout = expctimeout)
+           i = handler.expect('CVAC-4-CONFIG_DONE', timeout)
         except:
-            print('ERROR: error waiting for EOL.')
-            node_quit(handler)
-            return False
-
-    # At the end of configuration be sure we are in non config mode (sending CTRl + Z)
-    handler.sendline('\x1A')
-    try:
-        handler.expect('#', timeout = expctimeout)
-    except:
-        print('ERROR: error waiting for "#" prompt.')
-        node_quit(handler)
-        return False
-
-    # Save
-    handler.sendline('copy running-config startup-config')
-    try:
-        handler.expect('Destination filename', timeout = expctimeout)
-    except:
-        print('ERROR: error waiting for "Destination filename" prompt.')
-        node_quit(handler)
-        return False
-    handler.sendline('\r\n')
-    try:
-        handler.expect('#', timeout = longtimeout)
-    except:
-        print('ERROR: error waiting for "#" prompt.')
-        node_quit(handler)
-        return False
-
-    return True
+           return False
+        return True
 
 def usage():
     print('Usage: %s <standard options>' %(sys.argv[0]));
@@ -273,14 +217,12 @@ def main(action, fiename, port):
             node_quit(handler)
             sys.exit(1)
 
-        # Login to the device and get a privileged prompt
-        rc = node_login(handler)
-        if rc != True:
-            print('ERROR: failed to login.')
-            node_quit(handler)
-            sys.exit(1)
-
         if action == 'get':
+            rc = node_login(handler)
+            if rc != True:
+                print('ERROR: failed to login.')
+                node_quit(handler)
+                sys.exit(1)
             config = config_get(handler)
             if config in [False, None]:
                 print('ERROR: failed to retrieve config.')
@@ -296,16 +238,7 @@ def main(action, fiename, port):
                 node_quit(handler)
                 sys.exit(1)
         elif action == 'put':
-            try:
-                fd = open(filename, 'r')
-                config = fd.read()
-                fd.close()
-            except:
-                print('ERROR: cannot read config from file.')
-                node_quit(handler)
-                sys.exit(1)
-
-            rc = config_put(handler, config)
+            rc = config_put(handler)
             if rc != True:
                 print('ERROR: failed to push config.')
                 node_quit(handler)

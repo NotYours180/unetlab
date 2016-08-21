@@ -6,28 +6,11 @@
  *
  * Networks related functions for REST APIs.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab.  If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20151113
+ * @version 20160719
  */
 
 /**
@@ -40,7 +23,9 @@
  */
 function apiAddLabNetwork($lab, $p, $o) {
 	// Adding network_id to network_name if required
-	if ($o == True && isset($p['name'])) $p['name'] = $p['name'].$lab -> getFreeNetworkId();
+
+	$id = $lab -> getFreeNetworkId();
+	if ($o == True && isset($p['name'])) $p['name'] = $p['name'].$id;
 
 	// Adding the network
 	$rc = $lab -> addNetwork($p);
@@ -50,6 +35,9 @@ function apiAddLabNetwork($lab, $p, $o) {
 		$output['code'] = 201;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][60006];
+		$output['data'] = array(
+			'id'=>$id
+		);
 	} else {
 		// Failed to add network
 		$output['code'] = 400;
@@ -68,12 +56,21 @@ function apiAddLabNetwork($lab, $p, $o) {
  */
 function apiDeleteLabNetwork($lab, $id) {
 	// Deleting the network
+	$network = $lab->getNetworks()[$id];
 	$rc = $lab -> deleteNetwork($id);
 
 	if ($rc === 0) {
 		$output['code'] = 200;
 		$output['status'] = 'success';
 		$output['message'] = $GLOBALS['messages'][60023];
+		$output['data'] = Array(
+			'id'=>$id,
+			'count' => $network -> getCount(),
+			'left' => $network -> getLeft(),
+			'name' => $network -> getName(),
+			'top' => $network -> getTop(),
+			'type' => $network -> getNType()
+		);
 	} else {
 		$output['code'] = 400;
 		$output['status'] = 'fail';

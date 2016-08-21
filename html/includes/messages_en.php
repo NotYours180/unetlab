@@ -6,28 +6,11 @@
  *
  * English messages for UNetLab.
  *
- * LICENSE:
- *
- * This file is part of UNetLab (Unified Networking Lab).
- *
- * UNetLab is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * UNetLab is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with UNetLab. If not, see <http://www.gnu.org/licenses/>.
- *
  * @author Andrea Dainese <andrea.dainese@gmail.com>
  * @copyright 2014-2016 Andrea Dainese
- * @license http://www.gnu.org/licenses/gpl.html
+ * @license BSD-3-Clause https://github.com/dainok/unetlab/blob/master/LICENSE
  * @link http://www.unetlab.com/
- * @version 20160125
+ * @version 20160719
  */
 
 /***************************************************************************
@@ -51,6 +34,7 @@ $messages[15] = 'Cannot remove UUID from exported labs (15).';
 $messages[16] = 'Failed to export config (16).';
 $messages[17] = 'Failed to upgrade UNetLab (17).';
 $messages[18] = 'Unable to connect to Internet (18).';
+$messages[19] = 'Export not supported (19).';
 
 /***************************************************************************
  * Classes
@@ -112,6 +96,7 @@ $messages[20041] = 'cwObjectPicture ignored, invalid object (20041).';
 $messages[20042] = 'Cannot add object to the lab (20042).';
 $messages[20043] = 'Cannot find object in the selected lab (20043).';
 $messages[20044] = 'Cannot edit object in the selected lab (20044).';
+$messages[20045] = 'Attribute ignored, invalid script timeout - set to default value 300 (20045).';
 
 // __network.php (30000-39999)
 $messages[30000] = 'Cannot create network, invalid or missing mandatory parameters (30000).';
@@ -259,6 +244,7 @@ $messages[70017] = 'Serial portgroups (4 int each)';
 $messages[70018] = 'Ethernet portgroups (4 int each)';
 $messages[70019] = 'Exported';
 $messages[70020] = 'None';
+$messages[70021] = 'First Eth MAC Address';
 
 // CLI (80000-89999)
 $messages[80009] = 'Failed to add the username (80009).';
@@ -339,6 +325,7 @@ $messages[80084] = 'Skipping powered off and unsupported nodes (80084).';
 $messages[80085] = 'Failed to set MTU 9000 on interface (80085).';
 $messages[80086] = 'Cannot import iou-web file (80086).';
 $messages[80087] = 'iou-web file imported (80087).';
+$messages[80088] = 'Cannot find vpcs installation (80088).';
 
 // Authentication (90000-99999)
 $messages[90001] = 'User is not authenticated or session timed out (90001).';
